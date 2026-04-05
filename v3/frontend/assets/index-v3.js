@@ -16,13 +16,17 @@ let appState = {
   currentPage: 1,
   pageSize: 20,
   
-  // 筛选
+  // 筛选错题
   filters: {
     search: '',
     language: '',
     level: '',
     category: ''
   },
+  
+  // 错题本选择
+  selectedWrongIds: [],
+  currentWrongFilter: 'unsolved',
   
   // 复习配置
   reviewConfig: {
@@ -139,6 +143,7 @@ function renderApp() {
             <p>记录做错的题目，反复练习直到掌握</p>
           </div>
           <div class="wrong-stats" id="wrongStats"></div>
+          <div class="wrong-actions-bar" id="wrongActionsBar"></div>
           <div class="wrong-filters">
             <button class="wrong-filter-btn active" onclick="filterWrongAnswers('all')">全部错题</button>
             <button class="wrong-filter-btn" onclick="filterWrongAnswers('unsolved')">未掌握</button>
@@ -445,13 +450,10 @@ function renderReviewConfig() {
           </div>
           
           <div class="compact-field">
-            <label>题目数量</label>
-            <select class="compact-select" id="questionCountSelect" onchange="selectQuestionCount(this.value)">
-              <option value="3" ${appState.reviewConfig.questionCount === 3 ? 'selected' : ''}>3 题</option>
-              <option value="5" ${appState.reviewConfig.questionCount === 5 ? 'selected' : ''}>5 题</option>
-              <option value="10" ${appState.reviewConfig.questionCount === 10 ? 'selected' : ''}>10 题</option>
-              <option value="20" ${appState.reviewConfig.questionCount === 20 ? 'selected' : ''}>20 题</option>
-            </select>
+            <label>题目数量 (1-100)</label>
+            <input type="number" class="compact-input" id="questionCountInput" 
+                   min="1" max="100" value="${appState.reviewConfig.questionCount}" 
+                   onchange="selectQuestionCount(this.value)" oninput="validateQuestionCount(this)" />
           </div>
         </div>
       </div>
@@ -503,10 +505,21 @@ window.selectExerciseType = function(type) {
 
 // 选择题数
 window.selectQuestionCount = function(count) {
-  appState.reviewConfig.questionCount = parseInt(count);
-  // 更新下拉框选中状态
-  const select = document.getElementById('questionCountSelect');
-  if (select) select.value = count.toString();
+  let num = parseInt(count);
+  if (num < 1) num = 1;
+  if (num > 100) num = 100;
+  appState.reviewConfig.questionCount = num;
+  // 更新输入框值
+  const input = document.getElementById('questionCountInput');
+  if (input) input.value = num.toString();
+};
+
+// 验证题目数量输入
+window.validateQuestionCount = function(input) {
+  let num = parseInt(input.value);
+  if (num < 1) { num = 1; input.value = 1; }
+  if (num > 100) { num = 100; input.value = 100; }
+  appState.reviewConfig.questionCount = num;
 };
 
 // 获取筛选后的词汇用于选择
@@ -775,11 +788,11 @@ async function renderExerciseResult() {
                     </div>
                     <div class="detail-row">
                       <span class="label">❌ 你的答案：</span>
-                      <span class="value user-answer">${escapeHtml(w.user_answer || '未作答')}</span>
+                      <span class="value user-answer">${escapeHtml(w.userAnswer || '未作答')}</span>
                     </div>
                     <div class="detail-row">
                       <span class="label">✅ 正确答案：</span>
-                      <span class="value correct-answer">${escapeHtml(w.correct_answer)}</span>
+                      <span class="value correct-answer">${escapeHtml(w.correctAnswer)}</span>
                     </div>
                   </div>
                 </div>
@@ -911,8 +924,10 @@ window.filterWrongAnswers = function(filter) {
 function renderWrongAnswers(filter = 'unsolved') {
   const container = document.getElementById('wrongList');
   const statsContainer = document.getElementById('wrongStats');
+  const actionsBar = document.getElementById('wrongActionsBar');
   if (!container) return;
   
+  appState.currentWrongFilter = filter;
   renderWrongStats();
   
   let filtered = appState.wrongAnswers;
@@ -920,6 +935,29 @@ function renderWrongAnswers(filter = 'unsolved') {
     filtered = appState.wrongAnswers.filter(w => !w.solved);
   } else if (filter === 'solved') {
     filtered = appState.wrongAnswers.filter(w => w.solved);
+  }
+  
+  // 渲染操作栏
+  if (actionsBar) {
+    const selectedCount = appState.selectedWrongIds.length;
+    actionsBar.innerHTML = `
+      <div class="wrong-batch-actions">
+        <label class="wrong-select-all">
+          <input type="checkbox" onchange="toggleSelectAllWrong(this.checked, '${filter}')" 
+                 ${filtered.length > 0 && appState.selectedWrongIds.length === filtered.length ? 'checked' : ''} />
+          <span>全选</span>
+        </label>
+        <span class="wrong-selected-count">已选 ${selectedCount} 题</span>
+        <button class="wrong-batch-btn ${selectedCount === 0 ? 'disabled' : ''}" 
+                onclick="reviewSelectedWrongAnswers()" ${selectedCount === 0 ? 'disabled' : ''}>
+          📝 复习选中错题
+        </button>
+        <button class="wrong-batch-btn ${selectedCount === 0 ? 'disabled' : ''}" 
+                onclick="reviewAllWrongAnswers('${filter}')" ${filtered.length === 0 ? 'disabled' : ''}>
+          🚀 复习全部错题 (${filtered.length})
+        </button>
+      </div>
+    `;
   }
   
   if (filtered.length === 0) {
@@ -936,13 +974,18 @@ function renderWrongAnswers(filter = 'unsolved') {
   container.innerHTML = filtered.map(w => {
     const isSolved = w.solved;
     const solvedDate = w.solved_at ? new Date(w.solved_at).toLocaleDateString('zh-CN') : '';
+    const isSelected = appState.selectedWrongIds.includes(w.id);
     
     return `
       <div class="wrong-card ${isSolved ? 'solved' : ''}">
         <div class="wrong-card-header">
-          <div class="wrong-word">
-            <span class="word">${escapeHtml(w.word)}</span>
-            ${w.pinyin ? `<span class="pinyin">${escapeHtml(w.pinyin)}</span>` : ''}
+          <div class="wrong-checkbox-row">
+            <input type="checkbox" class="wrong-item-checkbox" value="${w.id}" 
+                   ${isSelected ? 'checked' : ''} onchange="toggleWrongSelection('${w.id}')"/>
+            <div class="wrong-word">
+              <span class="word">${escapeHtml(w.word)}</span>
+              ${w.pinyin ? `<span class="pinyin">${escapeHtml(w.pinyin)}</span>` : ''}
+            </div>
           </div>
           <span class="wrong-status ${isSolved ? 'solved' : 'unsolved'}">
             ${isSolved ? '✅ 已掌握' : '⏳ 未掌握'}
@@ -976,6 +1019,130 @@ function renderWrongAnswers(filter = 'unsolved') {
     `;
   }).join('');
 }
+
+// 全选/取消全选错题
+window.toggleSelectAllWrong = function(checked, filter) {
+  let filtered = appState.wrongAnswers;
+  if (filter === 'unsolved') {
+    filtered = appState.wrongAnswers.filter(w => !w.solved);
+  } else if (filter === 'solved') {
+    filtered = appState.wrongAnswers.filter(w => w.solved);
+  }
+  
+  if (checked) {
+    appState.selectedWrongIds = filtered.map(w => w.id);
+  } else {
+    appState.selectedWrongIds = [];
+  }
+  
+  // 更新所有复选框状态
+  document.querySelectorAll('.wrong-item-checkbox').forEach(cb => {
+    cb.checked = checked;
+  });
+  
+  // 更新计数显示
+  const countSpan = document.querySelector('.wrong-selected-count');
+  if (countSpan) {
+    countSpan.textContent = `已选 ${appState.selectedWrongIds.length} 题`;
+  }
+  
+  // 更新按钮状态
+  const batchBtns = document.querySelectorAll('.wrong-batch-btn');
+  batchBtns.forEach(btn => {
+    if (appState.selectedWrongIds.length === 0) {
+      btn.classList.add('disabled');
+      btn.disabled = true;
+    } else {
+      btn.classList.remove('disabled');
+      btn.disabled = false;
+    }
+  });
+};
+
+// 单个错题选择切换
+window.toggleWrongSelection = function(id) {
+  const index = appState.selectedWrongIds.indexOf(id);
+  if (index > -1) {
+    appState.selectedWrongIds.splice(index, 1);
+  } else {
+    appState.selectedWrongIds.push(id);
+  }
+  
+  // 更新计数显示
+  const countSpan = document.querySelector('.wrong-selected-count');
+  if (countSpan) {
+    countSpan.textContent = `已选 ${appState.selectedWrongIds.length} 题`;
+  }
+  
+  // 更新全选复选框状态
+  const selectAllCb = document.querySelector('.wrong-select-all input');
+  if (selectAllCb) {
+    const filteredCount = document.querySelectorAll('.wrong-item-checkbox').length;
+    selectAllCb.checked = appState.selectedWrongIds.length === filteredCount;
+  }
+  
+  // 更新按钮状态
+  const batchBtns = document.querySelectorAll('.wrong-batch-btn');
+  batchBtns.forEach(btn => {
+    if (appState.selectedWrongIds.length === 0 && !btn.textContent.includes('全部')) {
+      btn.classList.add('disabled');
+      btn.disabled = true;
+    } else {
+      btn.classList.remove('disabled');
+      btn.disabled = false;
+    }
+  });
+};
+
+// 复习选中的错题
+window.reviewSelectedWrongAnswers = function() {
+  if (appState.selectedWrongIds.length === 0) {
+    showToast('请先选择错题', 'error');
+    return;
+  }
+  
+  const selectedWrongItems = appState.wrongAnswers.filter(w => appState.selectedWrongIds.includes(w.id));
+  const vocabIds = selectedWrongItems.map(w => w.vocabulary_id);
+  
+  // 去重
+  const uniqueVocabIds = [...new Set(vocabIds)];
+  
+  appState.reviewConfig.selectedVocabIds = uniqueVocabIds;
+  appState.reviewConfig.useWrongAnswersOnly = true;
+  
+  // 清空选择
+  appState.selectedWrongIds = [];
+  
+  switchTab('review');
+  showToast(`已选择 ${uniqueVocabIds.length} 个错题词汇进行复习`, 'success');
+};
+
+// 复习全部错题
+window.reviewAllWrongAnswers = function(filter) {
+  let filtered = appState.wrongAnswers;
+  if (filter === 'unsolved') {
+    filtered = appState.wrongAnswers.filter(w => !w.solved);
+  } else if (filter === 'solved') {
+    filtered = appState.wrongAnswers.filter(w => w.solved);
+  }
+  
+  if (filtered.length === 0) {
+    showToast('没有可复习的错题', 'error');
+    return;
+  }
+  
+  const vocabIds = filtered.map(w => w.vocabulary_id);
+  const uniqueVocabIds = [...new Set(vocabIds)];
+  
+  appState.reviewConfig.selectedVocabIds = uniqueVocabIds;
+  appState.reviewConfig.useWrongAnswersOnly = true;
+  
+  // 清空选择
+  appState.selectedWrongIds = [];
+  
+  switchTab('review');
+  showToast(`已选择全部 ${uniqueVocabIds.length} 个错题词汇进行复习`, 'success');
+};
 
 // 标记错题为已掌握
 window.markWrongAsSolved = async function(id) {
