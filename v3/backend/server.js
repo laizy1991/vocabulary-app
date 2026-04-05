@@ -585,12 +585,24 @@ app.post('/api/exercises/:id/submit', (req, res) => {
       if (isCorrect) {
         correctCount++;
       } else {
-        // 记录错题
-        const wrongId = uuidv4();
-        db.run(`
-          INSERT INTO wrong_answers (id, vocabulary_id, exercise_id, question_type, user_answer, correct_answer, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [wrongId, q.vocabularyId, id, q.type, userAnswer, correctAnswer, now]);
+        // 检查是否已存在相同的未解决错题（同一词汇 + 同题型 + 正确答案）
+        const checkStmt = db.prepare(`
+          SELECT id FROM wrong_answers 
+          WHERE vocabulary_id = ? AND question_type = ? AND correct_answer = ? AND solved = 0
+        `);
+        checkStmt.bind([q.vocabularyId, q.type, correctAnswer]);
+        let existingWrong = null;
+        if (checkStmt.step()) existingWrong = checkStmt.getAsObject();
+        checkStmt.free();
+        
+        if (!existingWrong) {
+          // 没有重复的未解决错题，才记录新错题
+          const wrongId = uuidv4();
+          db.run(`
+            INSERT INTO wrong_answers (id, vocabulary_id, exercise_id, question_type, user_answer, correct_answer, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+          `, [wrongId, q.vocabularyId, id, q.type, userAnswer, correctAnswer, now]);
+        }
         
         wrongAnswers.push({
           questionId: q.id,
@@ -598,7 +610,8 @@ app.post('/api/exercises/:id/submit', (req, res) => {
           questionType: q.type,
           prompt: q.prompt,
           userAnswer,
-          correctAnswer
+          correctAnswer,
+          duplicate: existingWrong ? true : false
         });
       }
     });
