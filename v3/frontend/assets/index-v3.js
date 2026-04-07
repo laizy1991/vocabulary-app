@@ -681,18 +681,24 @@ function renderExerciseQuestion() {
   let questionHtml = '';
   
   if (question.type === 'dictation') {
+    // 从 hint 提取音标部分（去掉 "音标：" 前缀）
+    let phonetic = question.hint ? question.hint.replace('音标：', '') : '';
     questionHtml = `
       <div class="exercise-question">
         <div class="prompt">${question.prompt}</div>
-        ${question.hint ? `<div class="hint">💡 提示：${question.hint}</div>` : ''}
+        ${phonetic ? `<div class="hint">💡 提示：${phonetic} <button class="audio-btn" onclick="playAudio('${escapeHtml(question.word)}', '${question.language || 'en'}')" title="点击朗读">🔊</button></div>` : ''}
       </div>
       <input type="text" class="exercise-input" id="answerInput" placeholder="输入你的答案" autocomplete="off" />
       <button class="submit-btn" onclick="submitAnswer()">提交答案</button>
     `;
   } else if (question.type === 'translation' || question.type === 'choice') {
+    // 提取 prompt 中的词汇
+    const wordMatch = question.prompt.match(/"([^"]+)"/);
+    const word = wordMatch ? wordMatch[1] : question.word;
     questionHtml = `
       <div class="exercise-question">
-        <div class="prompt">${question.prompt}</div>
+        <div class="prompt">${question.prompt} <button class="audio-btn" onclick="playAudio('${escapeHtml(word)}', '${question.language || 'en'}')" title="点击朗读">🔊</button></div>
+        ${question.pinyin ? `<div class="hint" style="margin-top:8px;">音标：${question.pinyin}</div>` : ''}
       </div>
       <div class="exercise-options" id="optionsContainer">
         ${question.options.map((opt, i) => `

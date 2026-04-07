@@ -555,6 +555,8 @@ app.post('/api/exercises/generate', async (req, res) => {
         type: 'dictation',
         prompt: `请写出中文"${v.meaning}"对应的${v.language === 'en' ? '英文' : '中文'}词语`,
         hint: v.pinyin ? `音标：${v.pinyin}` : '',
+        word: v.word, // 用于音频播放
+        language: v.language || 'en', // 语言类型
         answer: v.word,
         vocabularyId: v.id
       }));
@@ -569,6 +571,8 @@ app.post('/api/exercises/generate', async (req, res) => {
           id: i,
           type: 'translation',
           prompt: `"${v.word}" 的意思是？`,
+          word: v.word, // 用于音频播放
+          language: v.language || 'en', // 语言类型
           answer: v.meaning,
           options,
           vocabularyId: v.id
@@ -584,6 +588,9 @@ app.post('/api/exercises/generate', async (req, res) => {
           id: i,
           type: 'choice',
           prompt: `"${v.word}" 的正确释义是？`,
+          word: v.word, // 用于音频播放
+          language: v.language || 'en', // 语言类型
+          pinyin: v.pinyin, // 音标
           answer: v.meaning,
           options,
           vocabularyId: v.id
