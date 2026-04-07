@@ -5,6 +5,7 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const http = require('http');
 
 const app = express();
 const PORT = process.env.PORT || 10826;
@@ -809,6 +810,37 @@ app.get('/api/stats', (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// 音频代理接口 - 获取词汇发音
+app.get('/api/audio', (req, res) => {
+  const { word, lang } = req.query;
+  if (!word) {
+    return res.status(400).json({ success: false, error: '请提供词汇' });
+  }
+  
+  // 有道词典音频 API
+  const type = lang === 'zh' ? 1 : 1; // 美式发音
+  const audioUrl = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(word)}&type=${type}`;
+  
+  // 代理请求
+  https.get(audioUrl, (audioRes) => {
+    res.setHeader('Content-Type', 'audio/mp3');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 缓存一天
+    audioRes.pipe(res);
+  }).on('error', (err) => {
+    // 备用：百度词典
+    const backupUrl = lang === 'zh'
+      ? `http://fanyi.baidu.com/gettts?lan=zh&text=${encodeURIComponent(word)}&spd=5&source=web`
+      : `http://fanyi.baidu.com/gettts?lan=en&text=${encodeURIComponent(word)}&spd=5&source=web`;
+    
+    http.get(backupUrl, (backupRes) => {
+      res.setHeader('Content-Type', 'audio/mp3');
+      backupRes.pipe(res);
+    }).on('error', () => {
+      res.status(500).json({ success: false, error: '获取音频失败' });
+    });
+  });
 });
 
 // 前端路由

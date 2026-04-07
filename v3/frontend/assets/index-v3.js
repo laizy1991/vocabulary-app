@@ -3,36 +3,14 @@
 // API 配置
 const API_BASE = window.API_BASE_URL || '/api';
 
-// 🎵 音频播放函数 - 使用 Web Speech API
+// 🎵 音频播放函数 - 使用后端代理接口
 window.playAudio = function(word, lang = 'en') {
-  if (!('speechSynthesis' in window)) {
-    showToast('您的浏览器不支持语音播放', 'error');
-    return;
-  }
-  
-  // 停止当前正在播放的语音
-  window.speechSynthesis.cancel();
-  
-  const utterance = new SpeechSynthesisUtterance(word);
-  // 根据语言设置发音
-  utterance.lang = lang === 'zh' ? 'zh-CN' : 'en-US';
-  utterance.rate = 0.9; // 稍慢一点，便于学习
-  utterance.pitch = 1;
-  
-  // 尝试选择合适的语音
-  const voices = window.speechSynthesis.getVoices();
-  const targetLang = lang === 'zh' ? 'zh-CN' : 'en-US';
-  const voice = voices.find(v => v.lang === targetLang) || voices.find(v => v.lang.startsWith(lang === 'zh' ? 'zh' : 'en'));
-  if (voice) utterance.voice = voice;
-  
-  window.speechSynthesis.speak(utterance);
+  const audioUrl = `${API_BASE}/audio?word=${encodeURIComponent(word)}&lang=${lang}`;
+  const audio = new Audio(audioUrl);
+  audio.play().catch(err => {
+    showToast('播放失败，请稍后重试', 'error');
+  });
 };
-
-// 预加载语音列表（某些浏览器需要）
-if ('speechSynthesis' in window) {
-  window.speechSynthesis.getVoices();
-  window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
-}
 
 // 应用状态
 let appState = {
