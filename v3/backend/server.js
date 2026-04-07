@@ -286,7 +286,7 @@ app.post('/api/vocabulary/generate', async (req, res) => {
     const systemPrompt = `你是一个专业的语言学习助手，帮助用户学习词汇。
 请分析用户输入的词语，返回 JSON 格式：
 {
-  "pinyin": "拼音（如果是中文）",
+  "pinyin": "如果是中文词语，填写汉语拼音（带声调，如：nǐ hǎo）；如果是英文单词，填写 IPA 国际音标（如：/ˈhʌŋɡri/）",
   "meaning": "中文释义",
   "englishMeaning": "英文释义",
   "detail": "详细说明，包括词性、用法等",
@@ -295,7 +295,9 @@ app.post('/api/vocabulary/generate', async (req, res) => {
   "level": "beginner 或 intermediate 或 advanced",
   "language": "zh 或 en（判断是中文还是英文）"
 }
-只返回 JSON，不要其他内容。`;
+重要规则：
+- pinyin 字段：中文词语填拼音（带声调数字或符号均可），英文单词填 IPA 音标
+- 只返回 JSON，不要其他内容。`;
 
     const content = await aiRequest(`请详细分析这个词语："${word}"`, systemPrompt);
     const parsed = parseVocabularyAI(content, word);
@@ -456,6 +458,63 @@ app.delete('/api/vocabulary/:id', (req, res) => {
     saveDatabase();
     
     res.json({ success: true, message: '删除成功' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 批量填充音标/拼音
+app.post('/api/vocabulary/fill-phonetics', async (req, res) => {
+  try {
+    const { limit = 10 } = req.body;
+    
+    // 获取没有音标的词汇
+    const stmt = db.prepare('SELECT id, word, language FROM vocabulary WHERE pinyin IS NULL OR pinyin = "" LIMIT ?');
+    stmt.bind([limit]);
+    const vocabList = [];
+    while (stmt.step()) vocabList.push(stmt.getAsObject());
+    stmt.free();
+    
+    if (vocabList.length === 0) {
+      return res.json({ success: true, message: '所有词汇已有音标', updated: 0 });
+    }
+    
+    const systemPrompt = `你是一个专业的语言学习助手。为词汇生成音标或拼音。
+返回 JSON 格式：
+{
+  "pinyin": "如果是中文词语，填写汉语拼音（带声调，如：nǐ hǎo）；如果是英文单词，填写 IPA 国际音标（如：/ˈhʌŋɡri/）"
+}
+只返回 JSON，不要其他内容。`;
+    
+    let updated = 0;
+    const errors = [];
+    
+    for (const vocab of vocabList) {
+      try {
+        const content = await aiRequest(`为"${vocab.word}"生成音标/拼音`, systemPrompt);
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const data = JSON.parse(jsonMatch[0]);
+          if (data.pinyin) {
+            db.run('UPDATE vocabulary SET pinyin = ?, updated_at = ? WHERE id = ?', 
+              [data.pinyin, new Date().toISOString(), vocab.id]);
+            updated++;
+          }
+        }
+      } catch (e) {
+        errors.push({ word: vocab.word, error: e.message });
+      }
+    }
+    
+    saveDatabase();
+    
+    res.json({ 
+      success: true, 
+      message: `成功填充 ${updated} 个词汇的音标`,
+      updated,
+      total: vocabList.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
