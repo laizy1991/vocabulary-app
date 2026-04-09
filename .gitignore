@@ -15,8 +15,10 @@ node_modules/
 *.db
 vocabulary.db
 
-# 备份目录
-backups/
+# 备份目录 - 只保留最新备份
+backups/*
+!backups/*.db.gz
+!backups/backup.log
 
 # 系统文件
 .DS_Store
