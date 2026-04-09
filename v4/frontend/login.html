@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>词汇管理助手 v4 - 登录</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-container {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .logo h1 {
+      font-size: 28px;
+      color: #3b82f6;
+      margin-bottom: 8px;
+    }
+    .logo p {
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 2px solid #e5e7eb;
+      margin-bottom: 24px;
+    }
+    .tab {
+      flex: 1;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      color: #6b7280;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      color: #3b82f6;
+      border-bottom: 2px solid #3b82f6;
+      margin-bottom: -2px;
+    }
+    .form-group {
+      margin-bottom: 16px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      color: #374151;
+      font-size: 14px;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 16px;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #2563eb; }
+    .btn:disabled { background: #9ca3af; cursor: not-allowed; }
+    .error-msg {
+      color: #ef4444;
+      font-size: 14px;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #fee2e2;
+      border-radius: 8px;
+      display: none;
+    }
+    .success-msg {
+      color: #10b981;
+      font-size: 14px;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #d1fae5;
+      border-radius: 8px;
+      display: none;
+    }
+    .form-panel { display: none; }
+    .form-panel.active { display: block; }
+    .divider {
+      text-align: center;
+      margin: 24px 0;
+      color: #9ca3af;
+      position: relative;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 40%;
+      height: 1px;
+      background: #e5e7eb;
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+    .demo-info {
+      background: #f3f4f6;
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #6b7280;
+      text-align: center;
+    }
+    .demo-info strong { color: #374151; }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="logo">
+      <h1>📚 词汇管理助手</h1>
+      <p>v4 多用户版</p>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="login">登录</div>
+      <div class="tab" data-tab="register">注册</div>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="success-msg" id="successMsg"></div>
+
+    <!-- 登录表单 -->
+    <div class="form-panel active" id="loginPanel">
+      <div class="form-group">
+        <label>邮箱</label>
+        <input type="email" id="loginEmail" placeholder="请输入邮箱" required>
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <input type="password" id="loginPassword" placeholder="请输入密码" required>
+      </div>
+      <button class="btn" id="loginBtn">登录</button>
+      <div class="divider">首次使用</div>
+      <div class="demo-info">
+        <strong>演示账号：</strong><br>
+        邮箱: admin@localhost<br>
+        密码: admin123
+      </div>
+    </div>
+
+    <!-- 注册表单 -->
+    <div class="form-panel" id="registerPanel">
+      <div class="form-group">
+        <label>邮箱</label>
+        <input type="email" id="regEmail" placeholder="请输入邮箱" required>
+      </div>
+      <div class="form-group">
+        <label>昵称（可选）</label>
+        <input type="text" id="regNickname" placeholder="显示名称">
+      </div>
+      <div class="form-group">
+        <label>密码（至少6位）</label>
+        <input type="password" id="regPassword" placeholder="请输入密码" required>
+      </div>
+      <div class="form-group">
+        <label>确认密码</label>
+        <input type="password" id="regConfirm" placeholder="再次输入密码" required>
+      </div>
+      <button class="btn" id="registerBtn">注册</button>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    const TOKEN_KEY = 'v4_token';
+    const USER_KEY = 'v4_user';
+
+    // Tab 切换
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + 'Panel').classList.add('active');
+        hideMessages();
+      });
+    });
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('successMsg').style.display = 'none';
+    }
+
+    function showSuccess(msg) {
+      const el = document.getElementById('successMsg');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('errorMsg').style.display = 'none';
+    }
+
+    function hideMessages() {
+      document.getElementById('errorMsg').style.display = 'none';
+      document.getElementById('successMsg').style.display = 'none';
+    }
+
+    function setBtnLoading(btn, loading) {
+      btn.disabled = loading;
+      btn.textContent = loading ? '处理中...' : (btn.dataset.original || btn.textContent);
+      if (!btn.dataset.original) btn.dataset.original = btn.textContent;
+    }
+
+    // 登录
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      const email = document.getElementById('loginEmail').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      if (!email || !password) {
+        showError('请填写邮箱和密码');
+        return;
+      }
+
+      const btn = document.getElementById('loginBtn');
+      setBtnLoading(btn, true);
+      hideMessages();
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          localStorage.setItem(TOKEN_KEY, data.token);
+          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+          showSuccess('登录成功，正在跳转...');
+          setTimeout(() => {
+            window.location.href = '/index.html';
+          }, 1000);
+        } else {
+          showError(data.error || '登录失败');
+        }
+      } catch (err) {
+        showError('网络错误，请稍后重试');
+      }
+
+      setBtnLoading(btn, false);
+    });
+
+    // 注册
+    document.getElementById('registerBtn').addEventListener('click', async () => {
+      const email = document.getElementById('regEmail').value.trim();
+      const nickname = document.getElementById('regNickname').value.trim();
+      const password = document.getElementById('regPassword').value;
+      const confirm = document.getElementById('regConfirm').value;
+
+      if (!email || !password) {
+        showError('请填写邮箱和密码');
+        return;
+      }
+
+      if (password !== confirm) {
+        showError('两次密码不一致');
+        return;
+      }
+
+      if (password.length < 6) {
+        showError('密码至少需要6位');
+        return;
+      }
+
+      const btn = document.getElementById('registerBtn');
+      setBtnLoading(btn, true);
+      hideMessages();
+
+      try {
+        const res = await fetch(`${API_BASE}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, nickname })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showSuccess('注册成功！请登录');
+          setTimeout(() => {
+            document.querySelector('.tab[data-tab="login"]').click();
+            document.getElementById('loginEmail').value = email;
+          }, 1500);
+        } else {
+          showError(data.error || '注册失败');
+        }
+      } catch (err) {
+        showError('网络错误，请稍后重试');
+      }
+
+      setBtnLoading(btn, false);
+    });
+
+    // 检查是否已登录
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (token) {
+      // 验证 token
+      fetch(`${API_BASE}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            window.location.href = '/index.html';
+          } else {
+            localStorage.removeItem(TOKEN_KEY);
+            localStorage.removeItem(USER_KEY);
+          }
+        })
+        .catch(() => {});
+    }
+  </script>
+</body>
+</html>

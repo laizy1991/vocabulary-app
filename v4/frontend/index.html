@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#3b82f6" />
+  <title>词汇管理助手 v4</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #f9fafb;
+    }
+    .loading-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      color: #6b7280;
+    }
+    .loading-screen.hidden { display: none; }
+  </style>
+  <script type="module" crossorigin src="/assets/index-v3.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-v3.css">
+</head>
+<body>
+  <div id="root"></div>
+  <div class="loading-screen" id="loadingScreen">
+    <div>
+      <p>📚 加载中...</p>
+    </div>
+  </div>
+  <script>
+    // v4 API 配置
+    window.API_BASE_URL = '/api';
+    window.TOKEN_KEY = 'v4_token';
+    window.USER_KEY = 'v4_user';
+
+    // 认证检查
+    const token = localStorage.getItem(window.TOKEN_KEY);
+    
+    if (!token) {
+      // 未登录，跳转到登录页
+      window.location.href = '/login.html';
+    } else {
+      // 验证 token 是否有效
+      fetch(`${window.API_BASE_URL}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            // Token 有效，更新用户信息
+            localStorage.setItem(window.USER_KEY, JSON.stringify(data.user));
+            document.getElementById('loadingScreen').classList.add('hidden');
+          } else {
+            // Token 无效，清除并跳转登录页
+            localStorage.removeItem(window.TOKEN_KEY);
+            localStorage.removeItem(window.USER_KEY);
+            window.location.href = '/login.html';
+          }
+        })
+        .catch(err => {
+          console.error('认证检查失败:', err);
+          // 网络错误时仍然显示页面（可能只是暂时网络问题）
+          document.getElementById('loadingScreen').classList.add('hidden');
+        });
+    }
+
+    // 全局认证拦截器 - 为所有 fetch 请求添加 Authorization 头
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options = {}) {
+      const token = localStorage.getItem(window.TOKEN_KEY);
+      
+      // 只对 API 请求添加认证头
+      if (url.startsWith(window.API_BASE_URL) && token) {
+        options.headers = options.headers || {};
+        options.headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      return originalFetch(url, options)
+        .then(res => {
+          // 如果返回 401，跳转到登录页
+          if (res.status === 401) {
+            localStorage.removeItem(window.TOKEN_KEY);
+            localStorage.removeItem(window.USER_KEY);
+            window.location.href = '/login.html';
+          }
+          return res;
+        });
+    };
+
+    // 获取当前用户信息的辅助函数
+    window.getCurrentUser = function() {
+      const userStr = localStorage.getItem(window.USER_KEY);
+      return userStr ? JSON.parse(userStr) : null;
+    };
+
+    // 退出登录
+    window.logout = function() {
+      localStorage.removeItem(window.TOKEN_KEY);
+      localStorage.removeItem(window.USER_KEY);
+      window.location.href = '/login.html';
+    };
+  </script>
+</body>
+</html>
